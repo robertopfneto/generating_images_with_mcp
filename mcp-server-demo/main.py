@@ -1,42 +1,44 @@
+from urllib import response
 from mcp.server.fastmcp import FastMCP
-from openai import OpenAI
-import base64
+import os
 import uuid
 from pathlib import Path
+from google import genai
+
 
 mcp = FastMCP("mcp-server-demo")
-client = OpenAI()
+
+client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
 OUTPUT_DIR = Path("generated_images")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 ## IMAGE GENERATOR
-
 @mcp.tool()
 def generate_image(prompt: str) -> str:
-    
-    """ 
-    Generates an image based on the provided text prompt 
-    and saves it to disk.
-
-    Returns the file path of the saved image.
     """
-
-
-    result = client.images.generate(
-        model = "gpt-image-1",
-        prompt = prompt,
-        size = "1024x1024",
+    Gera uma imagem usando Gemini (SDK google.genai)
+    """
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-image",
+        contents=[prompt],
+        config=genai.types.GenerateContentConfig(
+            response_modalities=["IMAGE"]
+        ),
     )
+    parts = response.candidates[0].content.parts
+    for part in parts:
+        if part.text is not None:
+            print(part.text)
+            
+        elif part.inline_data is not None:
+            image = part.as_image()
+            output_path = OUTPUT_DIR / "generated_image.png"
+            image.save(output_path)
+            return str(output_path)
+    return "No image generated."
+    
 
-    image_base64 = result.data[0].b64_json
-    image_bytes = base64.b64decode(image_base64)
-
-    filename = OUTPUT_DIR / f"{uuid.uuid4()}.png"
-    with open(filename, "wb") as f:
-        f.write(image_bytes)
-
-    return str(filename)
 
 ## TOOL DO AGENTE
 
